@@ -1,5 +1,3 @@
-from itertools import product
-
 import numpy as np
 import xarray as xr
 
@@ -20,6 +18,7 @@ class QTable:
                                           agent2.possible_actions],
                                   dims=[agent1.name + "_state", agent2.name + "_state", agent1.name + "_action",
                                         agent2.name + "_action"])
+
 
     def get_table(self):
         return self.table.sel(**{self.agent1.name + "_state": self.agent1.current_state,

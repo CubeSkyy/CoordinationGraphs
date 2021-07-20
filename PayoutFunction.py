@@ -5,7 +5,7 @@ import xarray as xr
 class PayoutFunction:
     def __init__(self, agents, data=None):
         self.agents = agents
-
+        self.agent_names = [agent.name for agent in self.agents]
         if data is None:
             size = tuple([len(agent.possible_actions) for agent in self.agents])
             data = np.zeros(size)

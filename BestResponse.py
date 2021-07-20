@@ -16,9 +16,9 @@ class BestResponse:
 
     def get_value(self, actions):
         res = self.table
-        for agent, action in actions.items():
-            if agent in self.table.dims:
-                res = res.loc[action]
+        for agent_name, agent_action in actions.items():
+            if agent_name in self.table.dims:
+                res = res.loc[{agent_name: agent_action}]
 
         return res.data[()]
 
