@@ -1,3 +1,4 @@
+import copy
 import json
 from itertools import product
 from Agent import Agent
@@ -32,39 +33,45 @@ def init_agents():
     return agents
 
 
-def brute_force(agents):
-    max = ("", -1)
-    agent_names = [agents[x].name for x in agents]
-    action_product = list(product(*[agents[x].possible_actions for x in agents]))
-    all_payouts = list(
-        dict.fromkeys([item for sublist in [agent.payout_functions for agent in agents.values()] for item in sublist]))
-    for joint_action in action_product:
-        action_dict = {agent_names[i]: joint_action[i] for i in range(len(agent_names))}
-        _sum = 0
-        for payout in all_payouts:
-            _sum += payout.get_value(action_dict)
-        if _sum > max[1]:
-            max = action_dict, _sum
-    print("\nBest joint action:")
-    for key, value in sorted(max[0].items(), key=lambda x: x[0]):
-        print("{} : {}".format(key, value), end=', ')
-    return max[0]
 
 
-def variable_elimination(agents, order=None):
+def variable_elimination(agents, order=None, locked_actions={}, debug=False):
+
     if order is not None:
-        elimination_agents = [agents[agent_name] for agent_name in order]
+        elimination_agents = [agents[agent_name] for agent_name in order if agent_name not in locked_actions.keys()]
     else:
-        elimination_agents = agents.values()
+        elimination_agents = [agent for agent in list(agents.values()) if agent.name not in locked_actions.keys()]
 
-    # First Pass
-    for agent in elimination_agents[:-1]:
+        # First Pass
+    for agent in elimination_agents:
 
         # For every agent that depends on current agent
         dependant_agent_names = agent.dependant_agents
         dependant_agents = [agents[agent_name] for agent_name in dependant_agent_names]
         # Create all action possibilities between those agents
-        action_product = product(*[agent.possible_actions for agent in dependant_agents])
+        # action_product = product(*[agent.possible_actions for agent in dependant_agents])
+
+        if len(dependant_agents) == 0:
+            _max = ("-1", -1)
+            agent.best_response = ActionTable([])
+            for agent_action in agent.possible_actions:
+                _sum = 0
+                actions = dict({agent.name: agent_action}, **locked_actions)
+                # Maximizing the sum of every local payout function
+                for function in agent.payout_functions:
+                    _sum += function.get_value(actions)
+                if _sum >= _max[1]:
+                    _max = (agent_action, _sum)
+            agent.best_response.set_action(_max[0])
+            continue
+
+        res = []
+        for dependant_agent in dependant_agents:
+            if dependant_agent.name in locked_actions.keys():
+                res.append([locked_actions[dependant_agent.name]])
+            else:
+                res.append(dependant_agent.possible_actions)
+        action_product = list(product(*res))
 
         new_function = ActionTable(dependant_agents)
         agent.best_response = ActionTable(dependant_agents)
@@ -104,18 +111,15 @@ def variable_elimination(agents, order=None):
                                                             agent_name].dependant_agents])
 
     # Second Pass, Reverse Order, excluding the last agent
-    last_agent = list(elimination_agents)[-1]
-    actions = {last_agent.name: str(last_agent.payout_functions[0].table.argmax().data[()])}
-    for agent in list(elimination_agents)[-2::-1]:
+    # last_agent = list(elimination_agents)[-1]
+    # actions = {last_agent.name: str(last_agent.payout_functions[0].table.argmax().data[()])}
+    if locked_actions:
+        actions = locked_actions
+    for agent in list(elimination_agents)[::-1]:
         actions[agent.name] = agent.best_response.get_value(actions)
-
-    print("\nVariable Elimination Result:")
-    for key, value in sorted(actions.items(), key=lambda x: x[0]):
-        print("{} : {}".format(key, value), end=', ')
+    if debug:
+        print("\nVariable Elimination Result:")
+        for key, value in sorted(actions.items(), key=lambda x: x[0]):
+            print("{} : {}".format(key, value), end=', ')
     return actions
 
-
-
-agents = init_agents()
-bf = brute_force(agents)
-ve = variable_elimination(agents, order=["a1", "a2", "a3", "a4"])
